@@ -1,6 +1,134 @@
 import pandas as pd
 import numpy as np
 from IPython.display import display
+from pathlib import Path
+
+
+
+    
+def cargar_df_list_desde_directorio_csv(dir_path, patron="*.csv", imprimir_info=True, devolver_detalle=False):
+    """
+    Busca CSVs en un directorio, intenta leer cada archivo con cargar_todos_csv
+    y devuelve una lista de DataFrames.
+
+    Args:
+        dir_path (str | Path): Directorio donde buscar CSVs.
+        patron (str): Patrón de búsqueda (por defecto "*.csv").
+        imprimir_info (bool): Si True, imprime resumen de archivos encontrados.
+        devolver_detalle (bool): Si True, devuelve también rutas, encodings y separadores.
+
+    Returns:
+        list[pd.DataFrame] | tuple: 
+            - Si devolver_detalle=False: lista de DataFrames
+            - Si devolver_detalle=True: (df_list, paths, encodings, separadores)
+    """
+    base = Path(dir_path)
+    csv_paths = list(base.glob(patron))
+
+    if imprimir_info:
+        print(f"[INFO] Encontrados {len(csv_paths)} CSV:")
+        for p in csv_paths:
+            print("   -", p.name)
+
+    if not csv_paths:
+        raise FileNotFoundError(
+            f"No se encontraron CSV en {base.resolve()} con patrón '{patron}'. ¿Ruta correcta?"
+        )
+
+    df_list = []
+    paths = []
+    encs = []
+    seps = []
+
+    for path in csv_paths:
+        df, enc, sep = cargar_todos_csv(path)
+        df_list.append(df)
+        paths.append(path)
+        encs.append(enc)
+        seps.append(sep)
+
+    if devolver_detalle:
+        return df_list, paths, encs, seps
+
+    return df_list
+
+
+
+def cargar_todos_csv(path):
+    """
+    Intenta leer un CSV probando varios separadores y encodings.
+    Devuelve (df, encoding, sep). Lanza ValueError si no puede leer.
+    """
+
+    archivo = []
+
+    for enc in ("utf-8-sig", "utf-8", "latin-1", "utf-16"):
+
+        for sep in (",", ";", "|", "\t"):
+
+            try:
+                df = pd.read_csv(path, encoding=enc, sep=sep)
+                
+                if df.shape[1] > 1: # al menos 2 columnas
+                    print(f"[OK] {path.name}: encoding={enc}, sep='{sep}', shape={df.shape}")
+                    return df, enc, sep 
+                else:
+                    archivo.append((enc, sep, "solo 1 columna"))
+            except Exception as e:
+                archivo.append((enc, sep, str(e)))
+
+    # En caso de error, mostrar intentos
+    print(f"[ERROR] No pude leer {path.name}. Intentos:")
+
+    for enc, sep, err in archivo[:10]:  # mostrar algunos intentos
+        print(f"   enc={enc}, sep='{sep}' -> {err}")
+
+    raise ValueError(f"No se pudo leer {path}")
+
+
+
+
+def normalizar_nombres_columnas(name: str) -> str:
+    """
+    Normaliza el nombre de una columna.
+    """
+    name = name.strip()
+    name = name.lower()
+    name = name.replace(" ", "_")
+    name = name.replace("%", "pct")
+    name = name.replace("-", "_")
+    return name
+
+
+def normalizar_columnas_df_list(df_list, mostrar_cambios=True):
+    """
+    Normaliza los nombres de columnas de cada DataFrame en df_list usando normalizar_nombres_columnas().
+
+    Parámetros:
+    - df_list: lista de pandas.DataFrame
+    - mostrar_cambios: si True, imprime las columnas antes/después y los cambios detectados
+
+    Retorna:
+    - lista de DataFrames con columnas normalizadas
+    """
+    df_list_norm = []  # lista de dataframes normalizados
+
+    for i, df in enumerate(df_list):
+        old_cols = list(df.columns)
+        d2 = df.rename(columns=lambda c: normalizar_nombres_columnas(str(c)))
+        new_cols = list(d2.columns)
+
+        if mostrar_cambios and old_cols != new_cols:
+            print(f"[INFO] Normalizadas columnas en DF {i}:")
+            cambios = list(zip(old_cols, new_cols))
+            for old, new in cambios:
+                if old != new:
+                    print(f"   -   '{old}' -> '{new}'")
+
+        df_list_norm.append(d2)
+
+    return df_list_norm
+
 
 
 def resumen_valores_columna(df, columna):
@@ -128,4 +256,4 @@ def convertir_columna_bool(df, columna):
 
     
 
- 
+  
