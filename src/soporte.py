@@ -175,16 +175,17 @@ def mostrar_todos_valores_columna(df, columna, max_filas=None):
 
 
 
-def nulos_df (df):
+def nulos_df (df, ordenar_desc=False):
 
     df_nulos = pd.DataFrame({
         'Nulos': df.isnull().sum(),
         '% Nulos': round(((df.isnull().sum() / len(df) ) *100),2)
     })
 
+    if ordenar_desc:
+        df_nulos = df_nulos.sort_values('Nulos', ascending=False)
+
     return df_nulos
-
-
 
 
 
