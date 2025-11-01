@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from IPython.display import display
 from pathlib import Path
-
+import unicodedata
 
 
     
@@ -176,6 +176,9 @@ def mostrar_todos_valores_columna(df, columna, max_filas=None):
 
 
 def nulos_df (df, ordenar_desc=False):
+    """ 
+    Devuelve un Dataframe con las columnas y el porcentaje de nulos de cada columna.
+    """
 
     df_nulos = pd.DataFrame({
         'Nulos': df.isnull().sum(),
@@ -186,6 +189,35 @@ def nulos_df (df, ordenar_desc=False):
         df_nulos = df_nulos.sort_values('Nulos', ascending=False)
 
     return df_nulos
+
+
+
+def resumen_df(df):
+    """
+    Devuelve un DataFrame con un resumen completo de cada columna del DataFrame dado.
+    
+    Muestra para cada columna:
+    - Tipo de dato
+    - Total de valores
+    - Valores únicos
+    - Porcentaje de nulos
+    - Cantidad de valores duplicados
+    
+    Args:
+        df (pd.DataFrame): DataFrame de entrada
+        
+    Returns:
+        pd.DataFrame: DataFrame con el resumen de cada columna
+    """
+    return pd.DataFrame({
+        'Columna': df.columns,
+        'Tipo': [str(df[col].dtype) for col in df.columns],
+        'Total_Valores': [len(df[col]) for col in df.columns],
+        'Valores_Unicos': [df[col].nunique() for col in df.columns],
+        '%_Nulos': [round((df[col].isnull().sum() / len(df)) * 100, 2) 
+                    for col in df.columns],
+        'Duplicados': [df[col].duplicated().sum() for col in df.columns]
+    })
 
 
 
@@ -254,6 +286,65 @@ def convertir_columna_bool(df, columna):
     df[columna] = df[columna].astype('boolean') # usamos .astype('boolean') en vez de .astype(bool) porque .astype('boolean') permite mantener los nulos (con <NA>) sin convertilos a False automáticamente  
 
     print(f"Columna '{columna}' convertida a booleano.")
+
+    
+
+def limpiar_columna_texto(df, nombre_col, col_no_cambiar=None) :
+    """
+    Limpia y normaliza in-place una columna de texto en un DataFrame,
+    y devuelve cuántos valores han sido modificados.
+
+    Transformaciones aplicadas:
+      1. Convertir a string.
+      2. Eliminar espacios al principio y al final.
+      3. Colapsar múltiples espacios internos en uno solo.
+      4. Eliminar puntos “.”.
+      5. Normalizar caracteres Unicode (acentos, eñes…) a ASCII.
+      6. Convertir a mayúsculas.
+
+    Parámetros
+    ----------
+    df : pandas.DataFrame
+        DataFrame que contiene la columna a limpiar.
+    nombre_col : str
+        Nombre de la columna de texto a estandarizar.
+    col_no_cambiar : list
+        Lista de columnas que no se deben limpiar.
+
+    Retorna
+    -------
+    int
+        Número de celdas cuyo valor ha cambiado tras la limpieza.
+    """
+
+    if nombre_col in col_no_cambiar:
+
+        # Guardamos copia para comparar después
+        valor_original = df[nombre_col].astype(str).copy()
+
+        valor_modificado = df[nombre_col].astype(str)
+        # 1) strip
+        valor_modificado = valor_modificado.str.strip()
+        # 2) colapsar espacios
+        valor_modificado = valor_modificado.str.replace(r'\s+', ' ', regex=True)
+        # 3) quitar puntos
+        servalor_modificadoie = valor_modificado.str.replace('.', '', regex=False)
+        # 4) normalizar Unicode → ASCII
+        valor_modificado = valor_modificado.map(lambda s: unicodedata.normalize('NFKD', s))
+        valor_modificado = valor_modificado.str.encode('ascii', errors='ignore').str.decode('utf-8')
+        # 5) Title
+        valor_modificado = valor_modificado.str.title()
+        # 6) Denominaciones sociales en mayúsculas
+        valor_modificado = valor_modificado.str.capitalize()
+
+        # Sobrescribimos en el DataFrame
+        df[nombre_col] = valor_modificado
+
+    # Contamos cuántos han cambiado
+    # (se compara string a string)
+    diffs = (valor_original != valor_modificado).sum()
+    print(f"{diffs} valores actualizados en la columna '{nombre_col}'")
+
 
     
 
